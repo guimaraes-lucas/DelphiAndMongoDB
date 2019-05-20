@@ -11,7 +11,8 @@ uses
   System.JSON.BSON, System.JSON.Builders, FireDAC.Phys.MongoDBWrapper,
   FireDAC.VCLUI.Wait, Data.DB, FireDAC.Comp.Client, FireDAC.VCLUI.Error,
   FireDAC.Moni.Base, FireDAC.Moni.FlatFile, FireDAC.Comp.UI, Vcl.StdCtrls,
-  Vcl.ExtCtrls;
+  Vcl.ExtCtrls, FireDAC.Stan.Param, FireDAC.DatS, FireDAC.DApt.Intf,
+  FireDAC.Comp.DataSet, FireDAC.Phys.MongoDBDataSet, Vcl.Grids, Vcl.DBGrids;
 
 type
   TfrmMain = class(TForm)
@@ -29,13 +30,16 @@ type
     btnFind: TButton;
     btnQuery: TButton;
     btnFindSort: TButton;
-    mmoResult: TMemo;
+    dbgrdDocs: TDBGrid;
+    qryDocs: TFDMongoQuery;
+    dsDocs: TDataSource;
     procedure FormCreate(Sender: TObject);
     procedure btnInsertClick(Sender: TObject);
     procedure btnUpdateClick(Sender: TObject);
     procedure btnRemoveClick(Sender: TObject);
     procedure btnFindClick(Sender: TObject);
     procedure btnFindSortClick(Sender: TObject);
+    procedure btnQueryClick(Sender: TObject);
   private
     FCon: TMongoConnection;
     FEnv: TMongoEnv;
@@ -44,6 +48,7 @@ type
     procedure removeDocument();
     procedure searchDocument();
     procedure searchAndSortDocument();
+    procedure searchDocumentsQuery();
   public
     { Public declarations }
   end;
@@ -70,6 +75,11 @@ begin
   insertDocument;
 end;
 
+procedure TfrmMain.btnQueryClick(Sender: TObject);
+begin
+  searchDocumentsQuery;
+end;
+
 procedure TfrmMain.btnRemoveClick(Sender: TObject);
 begin
   removeDocument;
@@ -85,7 +95,6 @@ begin
   conMongoDB.Connected := True;
   FCon := TMongoConnection(conMongoDB.CliObj);
   FEnv := FCon.Env;
-  mmoResult.Clear;
 end;
 
 procedure TfrmMain.insertDocument;
@@ -107,7 +116,6 @@ begin
       .Add('pais', 'Inglaterra');
     // Inserindo-o na colecao
     FCon['test']['cadastro'].Insert(oDoc);
-    mmoResult.Lines.Add('Insert: ' + oDoc.AsJSON);
   finally
     FreeAndNil(oDoc);
   end;
@@ -120,7 +128,6 @@ begin
       .Add('cidade', 'Glasgow')
     .&End
   .Exec;
-  mmoResult.Lines.Add('Remove: ''cidade'' = ''Glasgow''');
 end;
 
 procedure TfrmMain.searchAndSortDocument;
@@ -136,10 +143,6 @@ begin
       .Ascending(['idade'])
     .&End;
 
-  // percorrer o cursor
-  while oCrs.Next do
-    mmoResult.Lines.Add(oCrs.Doc.AsJSON);
-
   // conta total de documentos
   lblTotDocs.Caption :=
     FCon['test']['cadastro'].Count().Value().ToString()+
@@ -153,14 +156,23 @@ begin
   // encontrar os documentos
   oCrs := FCon['test']['cadastro'].Find();
 
-  // percorrer o cursor
-  while oCrs.Next do
-    mmoResult.Lines.Add(oCrs.Doc.AsJSON);
-
   // conta total de documentos
   lblTotDocs.Caption :=
     FCon['test']['cadastro'].Count().Value().ToString()+
       ' documentos encontrados.';
+end;
+
+procedure TfrmMain.searchDocumentsQuery;
+begin
+  with qryDocs do
+  begin
+    Close;
+    QMatch := ('"pais":"Brasil"');
+    Open;
+
+    FieldByName('pais').DisplayLabel := 'nação';
+    ShowMessage(FieldByName('pais').FieldName + ': ' + FieldByName('pais').AsString);
+  end;
 end;
 
 procedure TfrmMain.updateDocument;
@@ -180,9 +192,6 @@ begin
       .&End
     .&End
     .Exec;
-  mmoResult.Lines.Add('Update: ''nome'' = ''José'' set ''sobrenome'' = ''Silva'''
-    + '''cidade'' = ''Rio de Janeiro'',''idade'' = 50''');
-
 end;
 
 end.
